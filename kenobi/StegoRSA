@@ -1,0 +1,242 @@
+# StegoRSA - picoCTF 2026 Writeup
+
+**Category:** Cryptography/Steganography  
+**Difficulty:** Easy  
+**Author:** Yahaya Meddy  
+
+---
+
+## Challenge Overview
+
+A message has been encrypted using RSA. The public key is missing, but the private key may have been carelessly left behind. The challenge provides two files:
+- `flag.enc` - The encrypted flag
+- `image.jpg` - An image file
+
+**Goal:** Recover the private key and decrypt the message to retrieve the flag.
+
+---
+
+## Solution Walkthrough
+
+### Step 1: Reconnaissance - Identify File Types
+
+First, let's examine what we're working with:
+
+```bash
+ls -la
+file flag.enc image.jpg
+```
+
+**Output:**
+```
+flag.enc:  data
+image.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, 
+segment length 16, comment: "2d2d2d2d2d424547494e2050524956415445204b45592d2d...", 
+baseline, precision 8, 512x512, components 3
+```
+
+**Key Observation:** The JPEG file has a comment field that contains hexadecimal data starting with `2d2d2d2d2d` which decodes to `-----`. This looks like the beginning of a PEM-formatted private key!
+
+---
+
+### Step 2: Extract and Decode the Hex Comment
+
+Let's extract the hexadecimal data from the image comment and decode it:
+
+```bash
+exiftool -Comment -b image.jpg | xxd -r -p
+```
+
+**Output:**
+```
+-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCyVzFWZNlKOrYK
+yYFYh76omBUGmRoJtMAYtfM7G1zYQv50JgqxNCYmyd3V1GUwwB1/s8kmWTK7uao8
+qN1oPqNmJLrWjKdaNeEVI4NTJYdLEzL4INMhR5Lz7ovjs2jYVvsNfdOmvIj0Tb/L
+WHut+mpCCiXvXMGOPn3B+3RNxr2b2rSm98SnsQVpK+80KVAKJpLBS7+rFzNU/6fm
+lTgPilxDGTWCFDdrmv1dyxtgCP5rz+6zJ8DTSLIScBWGCEauFtkQIxkqK/FJriF0
+GavYhaAoMHwE5YdcfdynE10NQLYuYwxR7AiL6rr8wBAWa+QbTpnv8s3LtmPUciPH
+nDgOjbAZAgMBAAECggEADz4ZUQxjz3664CtmlxvcCXIdKvATPATjPcFwYWsGaZP5
+RlFZjNl7kMlkYNIrV2o2IzvpK3JIfifBY3ed29rtsY1eXDfPlmvgOeOsBeNhX8Lr
+cm5wySmCR3/KHEsxYPs3MCki2b+Ht5S9GarNgFpUsmIGacHMZ8VSz413vG2J92vq
+c8ZasyO9jqJYIGpUaobNaUoeojdVjoXFPhKY0b9xaylotkF+EAk3T329KANSG58A
+isKwxiXw6BLGxuOfoGAh7K3r9DT5K5siE7G4uLl5tXxyNiWVAVKVK0hsPik8ka8i
+5gZQhHqbTs5DBdLsrpwO/RPpKNcUKNwkHxLAwbT0AQKBgQDk+8+TGC/npiE+3UfL
+3cZhPQmBEsv/9cyqoLA+0YQke3TJ4Fw8Ve/ioR2m+aaNGogo1UoX5LlTLLIMD9pO
+DIPy17uuMkaKYn9fpz+YafGjupTRysjOpj+NPsBLM+UKd5evKoglEU6vCy4vF+Ms
+xyAAkoT/u5qSNyrlz145i1F0AQKBgQDHYcRIOsSVBifOkNiILFfJclGjdp4mk2rH
+2nK6AfyuYsz1iH4fkNkmzflSHHMPxc6FXKcVSLjsd7z1Vsk/JTK/yur6vRRfiRhA
+V73C0G+8MbrfAQtRoJTzwB2qHcyjYe/wj85lzJtKdrYLJsQ+fQYbfhOyOs6qlL8j
+oosRmelcGQKBgES9e1DzH95wtuZCU31V9GnYgvPmiqsqROisGHyjNQImtaas3cOX
+IM5uA5LOuzr8zgdEEFwf46qebkzErYpko2/RZ5whp59/djFm6eZ9V3cJWgeo0qOG
+sOlb/yoUSBveTwDcycYm7fIKbzDgAOi+VlMVqSuETCC8wvn+SJEJy8gBAoGBAKbD
+OCftt4SprFvSvLlQ1XAxhOUDDo5XWMWmCbVYeh7llmZ7bno6bdZOCw3Jq9dybCUR
+dNKRi9KE5/AQUazWERdnwphL06GAil8uxBIQwpQWyCVDu1LfzBYABw/FcubowIZl
+0Y1F0FE871BucU+OxK/0CMdW9oqodSJ6DnV/VTbpAoGBAKwKIVzYAd97Fnc8wYfw
+vOk8EJWvWJM1PU5768uEEK/o0NwTVF3UZy6bahCJdecnDUz9Ex1ql+d/wCytI8+e
+3LJ95ccrdg/7t051qssGDcScLIlnnhrAd5h1nbpKSiYiaStwRjbS+Ug6brdU90mJ
+LeRoM0oBEsIBRbjbSUqeKBDH
+-----END PRIVATE KEY-----
+```
+
+Perfect! We've successfully extracted a valid RSA private key in PEM format.
+
+---
+
+### Step 3: Save the Private Key to a File
+
+Now let's save this private key to a file for use with OpenSSL:
+
+```bash
+exiftool -Comment -b image.jpg | xxd -r -p > private_key.pem
+cat private_key.pem
+```
+
+**Output:**
+```
+-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCyVzFWZNlKOrYK
+yYFYh76omBUGmRoJtMAYtfM7G1zYQv50JgqxNCYmyd3V1GUwwB1/s8kmWTK7uao8
+qN1oPqNmJLrWjKdaNeEVI4NTJYdLEzL4INMhR5Lz7ovjs2jYVvsNfdOmvIj0Tb/L
+WHut+mpCCiXvXMGOPn3B+3RNxr2b2rSm98SnsQVpK+80KVAKJpLBS7+rFzNU/6fm
+lTgPilxDGTWCFDdrmv1dyxtgCP5rz+6zJ8DTSLIScBWGCEauFtkQIxkqK/FJriF0
+GavYhaAoMHwE5YdcfdynE10NQLYuYwxR7AiL6rr8wBAWa+QbTpnv8s3LtmPUciPH
+nDgOjbAZAgMBAAECggEADz4ZUQxjz3664CtmlxvcCXIdKvATPATjPcFwYWsGaZP5
+RlFZjNl7kMlkYNIrV2o2IzvpK3JIfifBY3ed29rtsY1eXDfPlmvgOeOsBeNhX8Lr
+cm5wySmCR3/KHEsxYPs3MCki2b+Ht5S9GarNgFpUsmIGacHMZ8VSz413vG2J92vq
+c8ZasyO9jqJYIGpUaobNaUoeojdVjoXFPhKY0b9xaylotkF+EAk3T329KANSG58A
+isKwxiXw6BLGxuOfoGAh7K3r9DT5K5siE7G4uLl5tXxyNiWVAVKVK0hsPik8ka8i
+5gZQhHqbTs5DBdLsrpwO/RPpKNcUKNwkHxLAwbT0AQKBgQDk+8+TGC/npiE+3UfL
+3cZhPQmBEsv/9cyqoLA+0YQke3TJ4Fw8Ve/ioR2m+aaNGogo1UoX5LlTLLIMD9pO
+DIPy17uuMkaKYn9fpz+YafGjupTRysjOpj+NPsBLM+UKd5evKoglEU6vCy4vF+Ms
+xyAAkoT/u5qSNyrlz145i1F0AQKBgQDHYcRIOsSVBifOkNiILFfJclGjdp4mk2rH
+2nK6AfyuYsz1iH4fkNkmzflSHHMPxc6FXKcVSLjsd7z1Vsk/JTK/yur6vRRfiRhA
+V73C0G+8MbrfAQtRoJTzwB2qHcyjYe/wj85lzJtKdrYLJsQ+fQYbfhOyOs6qlL8j
+oosRmelcGQKBgES9e1DzH95wtuZCU31V9GnYgvPmiqsqROisGHyjNQImtaas3cOX
+IM5uA5LOuzr8zgdEEFwf46qebkzErYpko2/RZ5whp59/djFm6eZ9V3cJWgeo0qOG
+sOlb/yoUSBveTwDcycYm7fIKbzDgAOi+VlMVqSuETCC8wvn+SJEJy8gBAoGBAKbD
+OCftt4SprFvSvLlQ1XAxhOUDDo5XWMWmCbVYeh7llmZ7bno6bdZOCw3Jq9dybCUR
+dNKRi9KE5/AQUazWERdnwphL06GAil8uxBIQwpQWyCVDu1LfzBYABw/FcubowIZl
+0Y1F0FE871BucU+OxK/0CMdW9oqodSJ6DnV/VTbpAoGBAKwKIVzYAd97Fnc8wYfw
+vOk8EJWvWJM1PU5768uEEK/o0NwTVF3UZy6bahCJdecnDUz9Ex1ql+d/wCytI8+e
+3LJ95ccrdg/7t051qssGDcScLIlnnhrAd5h1nbpKSiYiaStwRjbS+Ug6brdU90mJ
+LeRoM0oBEsIBRbjbSUqeKBDH
+-----END PRIVATE KEY-----
+```
+
+---
+
+### Step 4: Verify the Private Key Validity
+
+Before using the key for decryption, let's verify it's valid:
+
+```bash
+openssl pkey -in private_key.pem -check -noout
+```
+
+**Output:**
+```
+Key is valid
+```
+
+Excellent! The private key is valid and ready to use.
+
+---
+
+### Step 5: Decrypt the Flag
+
+Now we can use OpenSSL's `pkeyutl` command to decrypt the encrypted flag:
+
+```bash
+openssl pkeyutl -decrypt \
+  -inkey private_key.pem \
+  -in flag.enc \
+  -out flag.txt
+```
+
+**Output:**
+```
+(No output on success)
+```
+
+---
+
+### Step 6: Retrieve the Flag
+
+Finally, read the decrypted flag:
+
+```bash
+cat flag.txt
+```
+
+**Output:**
+```
+picoCTF{rs4_k3y_1n_1mg_ce170c3d}
+```
+
+---
+
+## Flag
+
+```
+picoCTF{rs4_k3y_1n_1mg_ce170c3d}
+```
+
+---
+
+## Key Concepts & Techniques
+
+### 1. **Steganography (Hidden Data)**
+- The private key was hidden in the EXIF comment field of the JPEG image
+- This demonstrates how metadata can be used to conceal sensitive information
+
+### 2. **Hexadecimal Encoding**
+- The private key was encoded in hexadecimal format within the image
+- Used `xxd -r -p` to convert hex back to ASCII/binary format
+
+### 3. **EXIF Data Extraction**
+- `exiftool` is a powerful tool for reading and writing EXIF metadata
+- The `-Comment -b` flags extract the raw comment field
+
+### 4. **RSA Cryptography**
+- RSA requires both a public key (for encryption) and private key (for decryption)
+- OpenSSL's `pkeyutl` command performs low-level key operations
+
+### 5. **PEM Format**
+- Privacy Enhanced Mail (PEM) is a standard ASCII format for cryptographic keys
+- Enclosed in `-----BEGIN/END PRIVATE KEY-----` markers
+
+---
+
+## Tools Used
+
+| Tool | Purpose |
+|------|---------|
+| `file` | Identify file types and detect embedded data |
+| `exiftool` | Extract EXIF metadata from images |
+| `xxd` | Convert between hexadecimal and binary formats |
+| `openssl pkey` | Validate cryptographic keys |
+| `openssl pkeyutl` | Perform encryption/decryption operations |
+
+---
+
+## Lessons Learned
+
+1. **Always examine file metadata** - EXIF data can contain more than just camera information
+2. **Hexadecimal encoding is common in CTFs** - Always look for hex strings, especially in comments or metadata
+3. **Tool knowledge matters** - `exiftool` is invaluable for steganography challenges
+4. **Validate before use** - Always verify keys before attempting cryptographic operations
+
+---
+
+## Difficulty Assessment
+
+**Difficulty: Easy** ✓
+
+This challenge introduces:
+- Basic steganography concepts
+- EXIF metadata extraction
+- Hexadecimal decoding
+- Simple RSA decryption
+
+Perfect for beginners learning about cryptography and data hiding techniques!
